@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SurgeTriage</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <style>
+    html, body { height: 100%; }
+    .flash { animation: flash 1s ease-in-out infinite alternate; }
+    @keyframes flash { from { box-shadow: 0 0 0 2px #ef4444; } to { box-shadow: 0 0 0 5px rgba(239,68,68,.35); } }
+    .unit-icon { background: #111827; color: #fff; font: 600 10px/16px system-ui; text-align: center; border-radius: 3px; border: 1px solid #fff; }
+    .unit-icon.busy { background: #7c3aed; }
+    .scroll-thin::-webkit-scrollbar { width: 6px; } .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 text-sm flex flex-col">
+  <!-- Top bar -->
+  <header class="bg-slate-900 text-white px-4 py-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+    <div class="flex items-center gap-3">
+      <div class="font-bold text-lg tracking-tight">Surge<span class="text-red-400">Triage</span></div>
+      <nav class="flex gap-1">
+        <button data-tab="dashboard" class="tab px-3 py-1 rounded bg-slate-700">Dashboard</button>
+        <button data-tab="sim" class="tab px-3 py-1 rounded hover:bg-slate-700">Call Simulator</button>
+      </nav>
+    </div>
+    <div id="stats" class="flex flex-wrap gap-4 text-xs"></div>
+    <div class="ml-auto flex items-center gap-2">
+      <button id="replayBtn" class="bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded font-semibold">▶ Replay surge</button>
+      <select id="speed" class="bg-slate-700 rounded px-2 py-1.5 text-xs">
+        <option value="1">1× (2 min)</option><option value="2">2×</option><option value="4">4×</option>
+      </select>
+      <span id="replayStatus" class="text-xs text-slate-300 w-24"></span>
+      <button id="resetBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs">Reset</button>
+    </div>
+  </header>
+
+  <!-- Alerts: root-cause banners + preemption suggestions -->
+  <div id="alerts" class="flex flex-col gap-1 px-3 pt-2"></div>
+
+  <!-- Dashboard -->
+  <main id="view-dashboard" class="flex-1 min-h-0 flex gap-3 p-3">
+    <section class="w-80 shrink-0 flex flex-col bg-white rounded-lg shadow min-h-0">
+      <div class="px-3 py-2 border-b font-semibold flex justify-between"><span>Incident queue</span><span id="queueCount" class="text-slate-400 font-normal"></span></div>
+      <div id="queue" class="flex-1 overflow-y-auto scroll-thin p-2 space-y-2"></div>
+    </section>
+    <section class="flex-1 min-w-0 bg-white rounded-lg shadow overflow-hidden relative">
+      <div id="map" class="absolute inset-0"></div>
+      <div class="absolute bottom-2 left-2 z-[500] bg-white/90 rounded px-2 py-1 text-[11px] flex gap-2 shadow">
+        <span><b class="text-red-600">●</b> P0</span><span><b class="text-orange-500">●</b> P1</span><span><b class="text-amber-400">●</b> P2</span>
+        <span><b class="text-blue-500">●</b> P3</span><span><b class="text-slate-400">●</b> P4</span><span>▪ unit</span><span>◌ root cause</span>
+      </div>
+    </section>
+    <section id="detail" class="w-[26rem] shrink-0 bg-white rounded-lg shadow overflow-y-auto scroll-thin"></section>
+  </main>
+
+  <!-- Call simulator -->
+  <main id="view-sim" class="flex-1 min-h-0 hidden gap-3 p-3">
+    <section class="w-[34rem] shrink-0 bg-white rounded-lg shadow p-4 overflow-y-auto scroll-thin">
+      <h2 class="font-semibold text-base mb-1">New call</h2>
+      <p class="text-xs text-slate-500 mb-3">Type what the caller said. Before you submit, the simulator looks for an open incident that matches.</p>
+      <label class="block text-xs font-medium mb-1">Call description</label>
+      <textarea id="simText" rows="3" class="w-full border rounded p-2 mb-2" placeholder="e.g. Loud music from a party in the courtyard"></textarea>
+      <div class="flex flex-wrap gap-1 mb-3 text-[11px]">
+        <span class="text-slate-500">Try:</span>
+        <button class="sample underline text-blue-700" data-text="Loud music and a party in the courtyard, can't sleep" data-addr="0">repeat noise</button>
+        <button class="sample underline text-blue-700" data-text="Car blocking my driveway again on Atlantic" data-addr="1">repeat parking</button>
+        <button class="sample underline text-blue-700" data-text="Loud party in the courtyard and now someone pulled a knife" data-addr="0">noise + knife (never deflected)</button>
+        <button class="sample underline text-blue-700" data-text="Crash on the BQE, the fire is out and everyone is safe" data-addr="2">BQE update</button>
+      </div>
+      <label class="block text-xs font-medium mb-1">Address</label>
+      <select id="simAddr" class="w-full border rounded p-2 mb-2"></select>
+      <div class="flex gap-2 mb-2">
+        <input id="simFree" class="flex-1 border rounded p-2" placeholder="…or type an address / &quot;lat, lng&quot;" />
+        <button id="geoBtn" class="px-3 rounded bg-slate-200 hover:bg-slate-300 text-xs">Locate</button>
+      </div>
+      <div id="geoMsg" class="text-[11px] text-slate-500 mb-2"></div>
+      <label class="block text-xs font-medium mb-1">Channel</label>
+      <select id="simChannel" class="border rounded p-2 mb-3"><option>phone</option><option>sms</option><option>app</option><option>web</option></select>
+      <div id="simPreview" class="mb-3"></div>
+      <div id="deflect" class="mb-3"></div>
+      <button id="simSubmit" class="bg-slate-900 text-white px-4 py-2 rounded font-semibold">Submit call</button>
+      <div id="simResult" class="mt-3"></div>
+    </section>
+    <section class="flex-1 min-w-0 bg-white rounded-lg shadow flex flex-col min-h-0">
+      <div class="px-3 py-2 border-b font-semibold">Call log <span class="text-slate-400 font-normal">(newest first)</span></div>
+      <div id="callLog" class="flex-1 overflow-y-auto scroll-thin divide-y"></div>
+    </section>
+  </main>
+
+  <footer class="bg-amber-100 text-amber-900 text-xs text-center py-1 border-t border-amber-300">
+    ⚠ Decision-support prototype. Not for live dispatch. All priorities are recommendations, and a human dispatcher makes every final decision.
+  </footer>
+
+  <div id="toasts" class="fixed top-16 right-4 z-[1000] flex flex-col gap-2 w-80"></div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/seed.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

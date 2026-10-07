@@ -1,0 +1,5 @@
+{
+  "name": "surgetriage",
+  "private": true,
+  "scripts": { "test": "node --test tests/engine.test.js" }
+}
