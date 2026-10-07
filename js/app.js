@@ -16,11 +16,17 @@
 
   let store, selectedId = null;
   const map = L.map('map', { zoomControl: true }).setView([40.75, -73.94], 11);
-  // CARTO serves OSM-based tiles without requiring a Referer header, so it works when opened from file://.
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19, subdomains: 'abcd',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  }).addTo(map);
+  // OSM's tile server blocks requests without a Referer (i.e. pages opened from file://),
+  // so use Esri's keyless street map there and OSM when served over http(s).
+  if (location.protocol === 'file:') {
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    }).addTo(map);
+  } else {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+  }
   // Recompute size once layout settles (flex containers can measure 0px tall at init).
   window.addEventListener('load', () => map.invalidateSize());
   window.addEventListener('resize', () => map.invalidateSize());
