@@ -8,7 +8,13 @@
   // Order matters: first match wins.
   const CATEGORY_RULES = [
     ['shots fired', /\b(shots?|gunshots?|gunfire|shooting|shooter)\b/],
-    ['traffic crash', /\b(crash|collision|pile-?up|car accident|accident on|wreck|rear-?ended|hit by a car)\b/],
+    ['traffic crash', /(\bcrash|collision|pile-?up|car accident|accident on|\bwreck|rear-?ended|hit by a (car|truck|bus)|hit and run|car (got |was )?hit|ran a red light and hit)/],
+    ['robbery', /(robbery|robbing|being robbed|mugg|stick-?up|held up|hold-?up|carjack)/],
+    ['burglary', /(breaking (in|into)|burglar|intruder|someone (is )?(in|inside) my (house|home|apartment)|break-?in in progress)/],
+    ['domestic violence', /(domestic|(husband|wife|boyfriend|girlfriend|partner|father|mother|son|daughter) is (hitting|beating|hurting|choking|threatening))/],
+    ['person with weapon', /(\bgun\b|pistol|rifle|machete|armed (man|woman|person|guy))/],
+    ['harassment/threat', /(threaten|following me|stalking|harass|won'?t leave me alone)/],
+    ['missing person', /(missing|can'?t find my (child|kid|son|daughter|mother|father)|lost child|wandered off)/],
     ['gas smell', /(smell(s|ing)? (of |like )?gas|gas (leak|smell))/],
     ['explosion sound', /(explosion|loud boom|\bblast\b)/],
     ['people trapped', /(trapped|stuck under debris)/],
@@ -24,13 +30,29 @@
     ['elevator stuck', /(stuck in (the|an) elevator|elevator (is )?stuck)/],
     ['headaches/dizziness', /(headache|dizzy|dizziness|nause)/],
     ['welfare check', /(crying for help|in distress|welfare check)/],
-  ['assault', /(fight|fighting|beating|attack|assault|punch|stabb|knife)/],
-    ['medical', /(not breathing|unconscious|fell|chest pain|heart attack|overdose|seizure|collapsed|bleeding)/],
+    ['assault', /(fight|fighting|beating|attack|assault|punch|stabb|knife|hitting)/],
+    ['medical', /(not breathing|unconscious|\bfell\b|chest pain|heart attack|overdose|seizure|collapsed|bleeding|not moving|unresponsive|stroke|choking|allergic|can'?t breathe|hurt|injur|ambulance)/],
+    ['theft', /(stolen|stole|stealing|shoplift|broke into|break-?in|took my|missing package|robbed|pickpocket)/],
     ['noise', /(loud|noise|music|blasting|party|barking|jackhammer|bass)/],
-    ['illegal parking', /(parked|parking|driveway|double.?park|bike lane)/],
-    ['theft', /(stolen|stole|broke into|break-?in|burglar|took my|missing package|robbed)/],
+    ['illegal parking', /(parked|parking|driveway|double.?park|bike lane|abandoned (car|vehicle))/],
+    ['homeless outreach', /(homeless|sleeping in (the )?(lobby|hallway|doorway|subway)|encampment|panhandl)/],
+    ['street condition', /(pothole|street ?light|street lamp|broken sidewalk|manhole|road damage)/],
+    ['sanitation', /(garbage|trash|rats?\b|dumping|litter|graffiti|dead animal)/],
     ['inquiry', /(question|how do i|information about|what are the hours|tax bill|permit)/],
   ];
+
+  // CAD-style default priority per call type, applied only while the event is active
+  // (in_progress). It's a floor: factors and score can still raise priority, never lower it.
+  const CATEGORY_DEFAULT = {
+    'shots fired': 1, 'person with weapon': 1, 'domestic violence': 1, robbery: 1, fire: 1, 'gas smell': 1,
+    'explosion sound': 1, 'people trapped': 1,
+    burglary: 2, assault: 2, 'harassment/threat': 2, 'missing person': 2, medical: 2, 'welfare check': 2,
+    'structural crack': 2, 'debris falling': 2, sinkhole: 2, 'elevator stuck': 2, 'headaches/dizziness': 2,
+    'traffic crash': 3, flooding: 3, 'no water': 3, 'no power': 3, 'traffic signal out': 3, noise: 3,
+    theft: 3, 'homeless outreach': 3, unclassified: 3,
+    'low water pressure': 4, 'illegal parking': 4, 'street condition': 4, sanitation: 4, inquiry: 4,
+  };
+  const CRIME = ['robbery', 'burglary', 'theft', 'assault', 'domestic violence', 'harassment/threat', 'person with weapon'];
 
   // ---------------------------------------------------------------- dedupe windows
   const UTILITY = ['no water', 'low water pressure', 'flooding', 'sinkhole', 'no power', 'traffic signal out', 'gas smell'];
@@ -111,7 +133,7 @@
     const past = minutes !== null && minutes > 30;
     const resolved = RESOLUTION.test(t);
 
-    let life = /(not breathing|unconscious|bleeding|trapped|pinned|been shot|got shot|was shot|is shot|stabbed|dying|heart attack|can'?t breathe|overdose|seriously (hurt|injured)|badly (hurt|injured))/.test(t);
+    let life = /(not breathing|unconscious|bleeding|trapped|pinned|been shot|got shot|was shot|is shot|stabbed|dying|heart attack|can'?t breathe|overdose|\bhurt\b|injur|collapsed|seizure|not moving|unresponsive|stroke|choking|strangl|drowning|suicid)/.test(t);
     if (NEG_LIFE.test(t)) life = false;
     let fire = /(\bon fire\b|flames|\bfire\b|smoke|burning|gas leak|smell(s|ing)? (of |like )?gas|chemical|hazmat|explosion)/.test(t);
     if (NEG_FIRE.test(t)) fire = false;
@@ -122,12 +144,14 @@
       in_progress: !past && !resolved,
       minutes_since_event: minutes,
       weapons_involved: /(\bgun\b|knife|weapon|armed|pistol|rifle|machete|gunshots?|shots fired|\bshots\b|gunfire|shooter)/.test(t),
-      active_violence: /(fighting|beating|attacking|assaulting|punching|shooting at|stabbing|hitting (him|her|them))/.test(t),
+      active_violence: /(fighting|beating|attacking|assaulting|punching|shooting at|stabbing|hitting|choking|strangling|threatening to (kill|hurt|shoot|stab)|domestic)/.test(t),
       suspect_on_scene_or_fleeing: /(fled|fleeing|running away|running toward|ran (off|away|toward)|took off|drove off|drive off|trying to (leave|drive off|flee|run)|still (here|outside|on scene)|getaway)/.test(t),
       vulnerable_party: /(child|kid|baby|toddler|elderly|old (man|woman|lady)|grandm|grandf|senior|disabled|wheelchair|pregnant|crying for help|in distress)/.test(t),
       fire_or_hazmat: fire,
       key_details: KEY_PHRASES.filter(([re]) => re.test(t)).map(([, label]) => label),
     };
+    // A crime described as happening now implies the suspect is still there or just left.
+    if (CRIME.includes(category) && factors.in_progress && (minutes === null || minutes <= 30)) factors.suspect_on_scene_or_fleeing = true;
     if (!factors.key_details.length) factors.key_details = [t.split(/\s+/).slice(0, 6).join(' ')];
     return { ...factors, resolution_signal: resolved, needs_review: category === 'unclassified' };
   }
@@ -174,6 +198,9 @@
     score += corroboration;
     parts.push(`+${corroboration} corroboration (${callCount} independent caller${callCount === 1 ? '' : 's'})`);
     const scored = scoreToPriority(score);
+    // Call-type default (CAD-style), only while the event is active.
+    const typeDefault = f.in_progress && f.category in CATEGORY_DEFAULT ? CATEGORY_DEFAULT[f.category] : null;
+    const typeReason = () => `Call type "${f.category}" is at least P${typeDefault} while active`;
 
     // Hard overrides, in order.
     if (f.life_threat && f.in_progress) {
@@ -190,7 +217,8 @@
       reasons.push(`At least P2: in progress with suspect on scene or fleeing${cite('suspect_on_scene_or_fleeing')}`);
     }
     if (floor !== null) {
-      const p = Math.min(floor, scored);
+      const p = Math.min(floor, scored, typeDefault ?? 4);
+      if (typeDefault !== null && typeDefault < Math.min(floor, scored)) reasons.unshift(typeReason());
       reasons.push(`Score ${score}/100 → P${scored}: ${parts.join(', ')}`);
       return { priority: p, score, reasons };
     }
@@ -199,9 +227,11 @@
       reasons.push(`P4 override: event was ~${h} h ago, no life threat (report only)`);
       return { priority: 4, score, reasons };
     }
+    const p = Math.min(scored, typeDefault ?? 4);
+    if (p < scored) reasons.push(typeReason());
     reasons.push(`Score ${score}/100 → P${scored}: ${parts.join(', ')}`);
     if (!f.in_progress && !f.life_threat) reasons.push('No present danger or injury reported');
-    return { priority: scored, score, reasons };
+    return { priority: p, score, reasons };
   }
 
   // ---------------------------------------------------------------- geo + text similarity
@@ -282,7 +312,7 @@
   }
 
   return {
-    CATEGORY_RULES, ROOT_CAUSE_PATTERNS, BOOL_FACTORS, FACTOR_LABEL,
+    CATEGORY_RULES, CATEGORY_DEFAULT, ROOT_CAUSE_PATTERNS, BOOL_FACTORS, FACTOR_LABEL,
     extract, computePriority, scoreToPriority, dedupeWindow,
     distanceMeters, similarity, findDuplicate, findRootCauseClusters, canDeflect,
   };

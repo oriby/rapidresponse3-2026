@@ -39,6 +39,7 @@ Tests (Node 18+): `npm test`
 
 - **Extraction is rules-based, not an LLM.** `Engine.extract()` returns the exact JSON shape the spec asks Claude to produce, so a Claude call can replace it on a server later. Unrecognized text becomes `unclassified` and is flagged for review instead of guessed. Priority is always assigned by the deterministic engine and never by the extractor.
 - **No Supabase or PostGIS.** Distance uses haversine and text similarity uses a JS port of pg_trgm trigrams. All state lives in memory, so reloading the page resets it.
+- **Call-type default (added beyond the spec).** The spec score alone rates any call that is only "happening now" at 21/100 (P4), even a robbery in progress. So each active call type also has a CAD-style default that works as a floor, e.g. robbery/domestic violence P1, burglary/medical/missing person P2, noise/crash P3, parking/potholes/inquiries P4. It only applies while the event is active, it can never lower a priority, and when it decides the result it shows up as its own reason (`Call type "robbery" is at least P1 while active`). Cold reports (over 4 h old) still go to P4. The table is `CATEGORY_DEFAULT` in `js/engine.js`.
 - The root-cause scan runs every 30 s, and also every 30 s of replay time so it keeps up at 4× speed.
 
 ## How this differs from CAD

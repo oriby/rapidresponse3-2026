@@ -19,7 +19,7 @@
         id: 'I' + String(++seq.inc).padStart(3, '0'),
         created_at: now, updated_at: now, category: ex.category, lat: call.lat, lng: call.lng, address: call.address,
         priority: 4, priority_reasons: [], call_count: 0, status: 'open', root_cause_cluster_id: null,
-        factors: { life_threat: false, in_progress: false, weapons_involved: false, active_violence: false,
+        factors: { category: ex.category, life_threat: false, in_progress: false, weapons_involved: false, active_violence: false,
           suspect_on_scene_or_fleeing: false, vulnerable_party: false, fire_or_hazmat: false, minutes_since_event: null },
         sources: {}, key_details: [], call_ids: [], texts: [], needs_review: false, pending_downgrade: null,
         flash_until: 0, assigned_unit_id: null, from_session: true,

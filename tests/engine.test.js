@@ -76,3 +76,15 @@ test('surge replay: acceptance criteria', () => {
   assert.ok(st.S.incidents.some((i) => i.pending_downgrade), 'fire downgrade awaits dispatcher');
   for (const i of st.S.incidents) assert.ok(i.priority_reasons.length > 0);
 });
+
+test('call types: active crimes and emergencies are not buried at P4', () => {
+  const pr = (t) => E.computePriority(E.extract(t), 1).priority;
+  assert.equal(pr('Robbery in progress at the deli'), 1);
+  assert.equal(pr("Someone is breaking into my neighbor's house right now"), 2);
+  assert.equal(pr('Domestic violence, my husband is hitting me'), 1);
+  assert.equal(pr('Car accident on 5th avenue, one person is hurt'), 0);
+  assert.equal(pr('My child is missing'), 2);
+  assert.equal(pr('Loud party next door'), 3);
+  assert.equal(pr('My bike was stolen last night'), 4);
+  assert.equal(pr('Pothole on Broadway'), 4);
+});
