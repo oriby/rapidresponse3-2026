@@ -1,5 +1,9 @@
 # SurgeTriage (prototype)
 
+**🔴 Live app: https://rapidresponse3-2026.vercel.app/**
+
+Open the link and click **▶ Replay surge** to watch 200 calls become a handful of master incidents.
+
 An AI decision-support layer for 911/311 call centers during call-volume spikes. It groups duplicate
 calls into master incidents, scores priority P0–P4 with explainable reasons, upgrades priority when
 new details arrive, spots one root cause behind different complaint types, deflects repeat
