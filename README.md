@@ -1,6 +1,6 @@
 # SurgeTriage (prototype)
 
-**🔴 Live app: https://rapidresponse3-2026.vercel.app/**
+**🔴 Live app: https://rapidresponse3-2026.vercel.app/ **
 
 Open the link and click **▶ Replay surge** to watch 200 calls become a handful of master incidents.
 
